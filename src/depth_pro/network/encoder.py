@@ -291,7 +291,7 @@ class DepthProEncoder(nn.Module):
         # Split the 35 batch size from pyramid encoding back into 5x5+3x3+1x1.
         x0_encodings, x1_encodings, x2_encodings = torch.split(
             x_pyramid_encodings,
-            [len(x0_patches), len(x1_patches), len(x2_patches)],
+            [x0_patches.shape[0], x1_patches.shape[0], x2_patches.shape[0]],
             dim=0,
         )
 
