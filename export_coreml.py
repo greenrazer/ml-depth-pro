@@ -9,6 +9,8 @@ import torch
 import coremltools as ct
 import numpy as np
 
+from PIL import Image
+
 class DepthProWrapper(DepthPro, PyTorchModelHubMixin):
     """Depth Pro network."""
 
@@ -69,8 +71,9 @@ transform = Compose(
 model.eval()
 
 # Load and preprocess an image.
-image, _, _ = depth_pro.load_rgb("data/example.jpg")
-image = transform(image)
+image_orig, _, _ = depth_pro.load_rgb("data/example.jpg")
+_, H, W = image_orig.shape
+image = transform(image_orig)
 image = image.unsqueeze(0)
 image = torch.nn.functional.interpolate(
     image,
@@ -81,7 +84,7 @@ image = torch.nn.functional.interpolate(
 
 traced_model = torch.jit.trace(model, (image,))
 
-print(traced_model)
+# print(traced_model)
 
 # Run inference.
 # prediction = traced_model(image)
@@ -108,4 +111,21 @@ ct_model = ct.convert(
 	convert_to="mlprogram",
 )
 
-ct_model.save("depthpro.mlpackage")
+out = ct_model.predict({
+    "pixel_values": image
+})
+
+canonical_inverse_depth, fov_deg = out["depth_meters"], out["view_angle"]
+
+f_px = 0.5 * W / np.tan(0.5 * np.deg2rad(fov_deg.squeeze().astype(float)))
+inverse_depth = canonical_inverse_depth * (W / f_px)
+
+max_invdepth_vizu = min(inverse_depth.max(), 1 / 0.1)
+min_invdepth_vizu = max(1 / 250, inverse_depth.min())
+inverse_depth_normalized = (inverse_depth - min_invdepth_vizu) / (
+    max_invdepth_vizu - min_invdepth_vizu
+)
+color_depth = (inverse_depth_normalized.squeeze()[...] * 255).astype(np.uint8)
+Image.fromarray(color_depth).show()
+
+# ct_model.save("depthpro.mlpackage")
