@@ -117,7 +117,9 @@ out = ct_model.predict({
 
 canonical_inverse_depth, fov_deg = out["depth_meters"], out["view_angle"]
 
+# focal length in pixels
 f_px = 0.5 * W / np.tan(0.5 * np.deg2rad(fov_deg.squeeze().astype(float)))
+#turns depth in range 0-1 into meters
 inverse_depth = canonical_inverse_depth * (W / f_px)
 
 max_invdepth_vizu = min(inverse_depth.max(), 1 / 0.1)
