@@ -33,7 +33,7 @@ image_orig = np.array(img_pil)
 _, H, W = image_orig.shape
 image = transform(image_orig)
 
-ct_model = ct.models.MLModel("exports/depthpro.mlpackage")
+ct_model = ct.models.MLModel("exports/depthpro_palettized_wholetensor_4bit.mlpackage")
 
 out = ct_model.predict({
     "pixel_values": image
