@@ -25,6 +25,7 @@ ct_model = ct.convert(
 		)
 	],
 	convert_to="mlprogram",
+    minimum_deployment_target=ct.target.iOS18,
 )
 
-ct_model.save("exports/depthpro.mlpackage")
+ct_model.save("exports/depthpro_iOS18.mlpackage")
