@@ -52,7 +52,6 @@ ct_elapsed_time = ct_end_time - ct_start_time
 pt_canonical_inverse_depth, pt_fov_deg = pt_out[0].detach().numpy(), pt_out[1].detach().numpy()
 ct_canonical_inverse_depth, ct_fov_deg = ct_out["depth_meters"], ct_out["view_angle"]
 
-
 diff = np.abs(pt_canonical_inverse_depth - ct_canonical_inverse_depth)
 print("min", np.min(diff))
 print("median", np.median(diff))
