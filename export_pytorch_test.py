@@ -1,8 +1,16 @@
-from huggingface_hub import PyTorchModelHubMixin
-from depth_pro.depth_pro import (create_backbone_model,
-                                 DepthPro, DepthProEncoder, MultiresConvDecoder)
-
+import numpy as np
 import torch
+from depth_pro.depth_pro import (
+    DepthPro,
+    DepthProEncoder,
+    MultiresConvDecoder,
+    create_backbone_model,
+)
+from huggingface_hub import PyTorchModelHubMixin
+from PIL import Image
+from torch.autograd import profiler
+from torchvision.transforms import Compose, Normalize, ToTensor
+
 
 class DepthProWrapper(DepthPro, PyTorchModelHubMixin):
     """Depth Pro network."""
@@ -54,9 +62,51 @@ class DepthProWrapper(DepthPro, PyTorchModelHubMixin):
 model = DepthProWrapper.from_pretrained("apple/DepthPro-mixin")
 model.eval()
 
-image = torch.rand((1, 3, 1536, 1536))
-with torch.no_grad():
-    traced_model = torch.jit.trace(model, (image,))
+class ResizeCustom:
+    def __call__(self, image):
+        return torch.nn.functional.interpolate(
+            image,
+            size=(1536, 1536),
+            mode="bilinear",
+            align_corners=False,
+        )
 
-# Save the traced model to a file
-torch.jit.save(traced_model, "exports/traced_model.pt")
+
+class BatchSingle:
+    def __call__(self, image):
+        return image.unsqueeze(0)
+
+
+transform = Compose(
+    [
+        ToTensor(),
+        Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+        BatchSingle(),
+        ResizeCustom(),
+    ]
+)
+# Load and preprocess an image.
+img_pil = Image.open("data/example.jpg")
+image_orig = np.array(img_pil)
+_, H, W = image_orig.shape
+image = transform(image_orig)
+
+torch.set_num_threads(1)
+
+with profiler.profile(profile_memory=True, record_shapes=True, with_stack=True, with_modules=True) as prof:
+    with torch.no_grad():
+        a, b = model(image)
+# print(prof.key_averages(group_by_input_shape=True).table(sort_by="self_cpu_memory_usage"))
+# prof.export_chrome_trace("trace.json")
+
+total_mem = 0
+mem_trace_id = []
+for i, f in enumerate(prof.function_events):
+    if f.name == "aten::empty":
+        # print(f.cpu_memory_usage)
+        total_mem += f.cpu_memory_usage
+        print(i, f.name, f.cpu_memory_usage*1e-9, f.input_shapes)
+        mem_trace_id.append([i, f.name, f.cpu_memory_usage, f.input_shapes])
+
+# print(total_mem)
+# prof.export_stacks("whatever.json")
